@@ -1,3 +1,4 @@
+import datetime
 import os
 import time
 import copy
@@ -5,39 +6,86 @@ import argparse
 import numpy as np
 import torch
 import torch.nn as nn
+import pandas as pd
+from PIL import Image
+import wandb
+import torchinfo
 
-from utils import get_loops, get_dataset, get_network, get_eval_pool, evaluate_synset, get_daparam, get_time, TensorDataset, epoch, DiffAugment, ParamDiffAug, get_attention
+from utils import get_loops, get_dataset, get_network, get_eval_pool, evaluate_synset, get_daparam, get_time, epoch, DiffAugment, ParamDiffAug
 import matplotlib.pyplot as plt
 from torchvision import transforms
 from torch.utils.data.distributed import DistributedSampler
 import kornia as K
 import torch.distributed as dist
 import torch.cuda.comm
+from torch.utils.data import Dataset, DataLoader, TensorDataset
+from torch_flops import TorchFLOPsByFX
+from torchvision import datasets, transforms
 
+def format_time(elapsed):
+    '''
+    Takes a time in seconds and returns a string hh:mm:ss
+    '''
+    # Round to the nearest second.
+    elapsed_rounded = int(round((elapsed)))
+    
+    # Format as hh:mm:ss
+    return str(datetime.timedelta(seconds=elapsed_rounded))
+
+# Define the custom Dataset
+def get_dataset(dataset, data_root, transform=None, partition='train'):
+
+    if dataset == 'MHIST':
+        mean = [0.73943309, 0.65267006, 0.77742641]
+        std = [0.19637706, 0.24239548, 0.16935587]
+        images = [] 
+        labels = []  
+        annotations = pd.read_csv(os.path.join(data_root, 'annotations.csv'))
+        for idx in range(len(annotations)):
+            if annotations.iloc[idx, 3] == partition:
+                img_name = os.path.join(data_root, 'images', annotations.iloc[idx, 0])
+                image = np.array(Image.open(img_name).convert("RGB"), dtype=float)/255.0
+                
+                label = 1 if annotations.iloc[idx, 1] == "SSA" else 0
+                image = (image - mean)/std
+                image = np.transpose(image, (2, 0, 1))
+                images.append(image)
+                labels.append(label)
+        images = np.array(images)
+        labels = np.array(labels)
+
+        dataset = TensorDataset(torch.tensor(images), torch.tensor(labels))
+
+    
+    elif dataset == 'MNIST':
+        mean = [0.1307]
+        std = [0.3081]
+        transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+        if partition == 'train':
+            dataset = datasets.MNIST(data_root, train=True, download=True, transform=transform)
+        elif partition == 'test':
+            dataset = datasets.MNIST(data_root, train=False, download=True, transform=transform)
+        
+    
+    return dataset
+
+
+    
 def main():
 
     parser = argparse.ArgumentParser(description='Parameter Processing')
     parser.add_argument('--dataset', type=str, default='CIFAR10', help='dataset')
     parser.add_argument('--model', type=str, default='ConvNet', help='model')
-    parser.add_argument('--ipc', type=int, default=50, help='image(s) per class')
-    parser.add_argument('--eval_mode', type=str, default='SS', help='eval_mode') 
-    parser.add_argument('--num_exp', type=int, default=1, help='the number of experiments')
-    parser.add_argument('--num_eval', type=int, default=10, help='the number of evaluating randomly initialized models')
-    parser.add_argument('--epoch_eval_train', type=int, default=1800, help='epochs to train a model with synthetic data')
-    parser.add_argument('--Iteration', type=int, default=20000, help='training iterations')
-    parser.add_argument('--lr_img', type=float, default=1, help='learning rate for updating synthetic images, 1 for low IPCs 10 for >= 100')
-    parser.add_argument('--lr_net', type=float, default=0.01, help='learning rate for updating network parameters')
-    parser.add_argument('--batch_real', type=int, default=64, help='batch size for real data')
-    parser.add_argument('--batch_train', type=int, default=64, help='batch size for training networks')
-    parser.add_argument('--init', type=str, default='real', help='noise/real/smart: initialize synthetic images from random noise or randomly sampled real images.')
+    parser.add_argument('--epochs', type=int, default=20000, help='training iterations')
+    parser.add_argument('--lr', type=float, default=0.01, help='learning rate for updating network parameters')
+    parser.add_argument('--bs', type=int, default=64, help='batch size for training networks')   
     parser.add_argument('--dsa_strategy', type=str, default='color_crop_cutout_flip_scale_rotate', help='differentiable Siamese augmentation strategy')
     parser.add_argument('--data_path', type=str, default='', help='dataset path')
-    parser.add_argument('--zca', type=bool, default=False, help='Zca Whitening')
     parser.add_argument('--save_path', type=str, default='', help='path to save results')
-    parser.add_argument('--task_balance', type=float, default=0.01, help='balance attention with output')
+    parser.add_argument('--flops', action='store_true',default=False,help='flops only mode')
     
     args = parser.parse_args()
-    args.method = 'DataDAM'
+    args.method = 'Train'
     args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
     args.dsa_param = ParamDiffAug()
     args.dsa = False if args.dsa_strategy in ['none', 'None'] else True
@@ -48,312 +96,108 @@ def main():
     if not os.path.exists(args.save_path):
         os.mkdir(args.save_path)
 
-    eval_it_pool = np.arange(0, args.Iteration+1, 2000).tolist()[:] if args.eval_mode == 'S' or args.eval_mode == 'SS' else [args.Iteration] # The list of iterations when we evaluate models and record results.
-    print('eval_it_pool: ', eval_it_pool)
+
+    train_dataset = get_dataset(args.dataset, args.data_path, partition='train')
+    test_dataset = get_dataset(args.dataset, args.data_path, partition='test')
+
+    if args.dataset == 'MHIST':
+        model = get_network('ConvNetD7', channel=3, num_classes=2, im_size=(224, 224)).to(args.device)
+    elif args.dataset == 'MNIST':
+        model = get_network('ConvNetD3', channel=1, num_classes=10, im_size=(28, 28)).to(args.device)
+
+    train_loader = DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=0)
+    test_loader = DataLoader(test_dataset, batch_size=args.bs, shuffle=False, num_workers=0)
+
+
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0005)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=len(train_loader)*args.epochs)
+    criterion = nn.CrossEntropyLoss().to(args.device)
+
+    # for calculating FLOPs
+    if args.flops:
+        from calflops import calculate_flops
+
+        batch_size = 1
+        if args.dataset == 'MHIST':
+            input_shape = (batch_size, 3, 224, 224)
+        elif args.dataset == 'MNIST':
+            input_shape = (batch_size, 1, 28, 28)
+        flops, macs, params = calculate_flops(model=model, 
+                                            input_shape=input_shape,
+                                            output_as_string=True,
+                                            output_precision=4)
+        print("FLOPs:%s   MACs:%s   Params:%s \n" %(flops, macs, params))
+        exit()
+
     
-    channel, im_size, num_classes, class_names, mean, std, dst_train, dst_test, testloader, zca = get_dataset(args.dataset, args.data_path, args)
-    model_eval_pool = get_eval_pool(args.eval_mode, args.model, args.model)
+    for i in range(args.epochs):
 
+        print("")
+        print('======== Epoch {:} / {:} ========'.format(i + 1, args.epochs))
+        print('Training...')
+        loss_avg, acc_avg, num_exp = 0, 0, 0
 
-    accs_all_exps = dict() # record performances of all experiments
-    for key in model_eval_pool:
-        accs_all_exps[key] = []
+        model.train()
+        t0 = time.time()
 
-    data_save = []
-    
-    total_mean = {}
-    best_5 = []
-    accuracy_logging = {"mean":[], "std":[], "max_mean":[]}
-    for exp in range(args.num_exp):
-        total_mean[exp] = {'mean':[], 'std':[]}
-        best_5.append(0)
-        print('\n================== Exp %d ==================\n '%exp)
-        print('Hyper-parameters: \n', args.__dict__)
-        print('Evaluation model pool: ', model_eval_pool)
+        for i_batch, datum in enumerate(train_loader):
+            optimizer.zero_grad()
+            img = datum[0].float().to(args.device)
+            if args.dsa:
+                img = DiffAugment(img, args.dsa_strategy, param=args.dsa_param)
 
-        ''' organize the real dataset '''
-        images_all = []
-        labels_all = []
-        indices_class = [[] for c in range(num_classes)]
-        
-        images_all = [torch.unsqueeze(dst_train[i][0], dim=0) for i in range(len(dst_train))]
-        labels_all = [dst_train[i][1] for i in range(len(dst_train))]
-        for i, lab in enumerate(labels_all):
-            indices_class[lab].append(i)
-        images_all = torch.cat(images_all, dim=0).to(args.device)
-        labels_all = torch.tensor(labels_all, dtype=torch.long, device=args.device)
+            lab = datum[1].long().to(args.device)
+            bs = lab.shape[0]
 
+            output = model(img)
+            loss = criterion(output, lab)
+            acc = np.sum(np.equal(np.argmax(output.cpu().data.numpy(), axis=-1), lab.cpu().data.numpy()))
 
+            loss_avg += loss.item()*bs
+            acc_avg += acc
+            num_exp += bs
 
-        for c in range(num_classes):
-            print('class c = %d: %d real images'%(c, len(indices_class[c])))
+            print('  Batch {:>5,}  of  {:>5,}.    Elapsed: {:}.'.format(i_batch, len(train_loader), format_time(time.time() - t0)))
 
-        def get_images(c, n): # get random n images from class c
-            idx_shuffle = np.random.permutation(indices_class[c])[:n]
-            return images_all[idx_shuffle]
-
-        for ch in range(channel):
-            print('real images channel %d, mean = %.4f, std = %.4f'%(ch, torch.mean(images_all[:, ch]), torch.std(images_all[:, ch])))
-
-
-        ''' initialize the synthetic data '''
-        image_syn = torch.randn(size=(num_classes*args.ipc, channel, im_size[0], im_size[1]), dtype=torch.float, requires_grad=True, device=args.device)
-        label_syn = torch.tensor([np.ones(args.ipc)*i for i in range(num_classes)], dtype=torch.long, requires_grad=False, device=args.device).view(-1) # [0,0,0, 1,1,1, ..., 9,9,9]
-        if args.init == 'real':
-            print('initialize synthetic data from random real images')
-            for c in range(num_classes):
-                image_syn.data[c*args.ipc:(c+1)*args.ipc] = get_images(c, args.ipc).detach().data
-        elif args.init =='noise' :
-            print('initialize synthetic data from random noise')
-            
-        elif args.init =='smart' :
-            print('initialize synthetic data from SMART selection')
-            Path = './'
-            if args.dataset == "CIFAR10":
-                Path+='CIFAR10_'
-            
-            elif args.dataset == "CIFAR100":
-                Path+='CIFAR100_'
-                
-            if args.ipc == 1:
-                Path += 'IPC1_'
-                
-            elif args.ipc == 10:
-                Path += 'IPC10_'
-                
-            elif args.ipc == 50:
-                Path += 'IPC50_'
-                
-            elif args.ipc == 100:
-                Path += 'IPC100_'
-            
-            elif args.ipc == 200:
-                Path += 'IPC200_'
-            image_syn.data[:][:][:][:] = torch.load(Path+'images.pt')
-            label_syn.data[:] = torch.load(Path+'labels.pt')
-            
-        if(args.zca):
-            print("ZCA Whitened Complete")
-            image_syn.data[:][:][:][:] = zca(image_syn.data[:][:][:][:], include_fit=True)
-        else:
-            print("No ZCA Whiteinign")
-                
-            
-            
-            
-        
-        ''' training '''
-        optimizer_img = torch.optim.SGD([image_syn, ], lr=args.lr_img, momentum=0.5) # optimizer_img for synthetic data
-        optimizer_img.zero_grad()
-        print('%s training begins'%get_time())
-        ''' Defining the Hook Function to collect Activations '''
-        activations = {}
-        def getActivation(name):
-            def hook_func(m, inp, op):
-                activations[name] = op.clone()
-            return hook_func
-        
-        ''' Defining the Refresh Function to store Activations and reset Collection '''
-        def refreshActivations(activations):
-            model_set_activations = [] # Jagged Tensor Creation
-            for i in activations.keys():
-                model_set_activations.append(activations[i])
-            activations = {}
-            return activations, model_set_activations
-        
-        ''' Defining the Delete Hook Function to collect Remove Hooks '''
-        def delete_hooks(hooks):
-            for i in hooks:
-                i.remove()
-            return
-        
-        def attach_hooks(net):
-            hooks = []
-            base = net.module if torch.cuda.device_count() > 1 else net
-            for module in (base.features.named_modules()):
-                if isinstance(module[1], nn.ReLU):
-                    # Hook the Ouptus of a ReLU Layer
-                    hooks.append(base.features[int(module[0])].register_forward_hook(getActivation('ReLU_'+str(len(hooks)))))
-            return hooks
-        
-        max_mean = 0
-        for it in range(args.Iteration+1):
-
-            ''' Evaluate synthetic data '''
-            if it in eval_it_pool:
-                for model_eval in model_eval_pool:
-                    print('-------------------------\nEvaluation\nmodel_train = %s, model_eval = %s, iteration = %d'%(args.model, model_eval, it))
-
-                    print('DSA augmentation strategy: \n', args.dsa_strategy)
-                    print('DSA augmentation parameters: \n', args.dsa_param.__dict__)
-
-                    accs = []
-                    Start = time.time()
-                    for it_eval in range(args.num_eval):
-                        net_eval = get_network(model_eval, channel, num_classes, im_size).to(args.device) # get a random model
-                        image_syn_eval, label_syn_eval = copy.deepcopy(image_syn.detach()), copy.deepcopy(label_syn.detach()) # avoid any unaware modification
-                        mini_net, acc_train, acc_test = evaluate_synset(it_eval, net_eval, image_syn_eval, label_syn_eval, testloader, args)
-                        accs.append(acc_test)
-                        if acc_test > best_5[-1]:
-                            best_5[-1] = acc_test
-                    
-                    Finish = (time.time() - Start)/10
-                    
-                    print("TOTAL TIME WAS: ", Finish)
-                            
-                            
-                    print('Evaluate %d random %s, mean = %.4f std = %.4f\n-------------------------'%(len(accs), model_eval, np.mean(accs), np.std(accs)))
-                    if np.mean(accs) > max_mean:
-                        data=[]
-                        data_save.append([copy.deepcopy(image_syn.detach().cpu()), copy.deepcopy(label_syn.detach().cpu())])
-                        torch.save({'data': data_save, 'accs_all_exps': accs_all_exps, }, os.path.join(args.save_path, 'res_%s_%s_%s_%dipc_.pt'%(args.method, args.dataset, args.model, args.ipc)))
-                    # Track All of them!
-                    total_mean[exp]['mean'].append(np.mean(accs))
-                    total_mean[exp]['std'].append(np.std(accs))
-                    
-                    accuracy_logging["mean"].append(np.mean(accs))
-                    accuracy_logging["std"].append(np.std(accs))
-                    accuracy_logging["max_mean"].append(np.max(accs))
-                    
-                    
-                    if it == args.Iteration: # record the final results
-                        accs_all_exps[model_eval] += accs
-
-                ''' visualize and save '''
-                # save_name = os.path.join(args.save_path, 'vis_%s_%s_%s_%dipc_exp%d_iter%d.png'%(args.method, args.dataset, args.model, args.ipc, exp, it))
-                # image_syn_vis = copy.deepcopy(image_syn.detach().cpu())
-                # for ch in range(channel):
-                #     image_syn_vis[:, ch] = image_syn_vis[:, ch]  * std[ch] + mean[ch]
-                # image_syn_vis[image_syn_vis<0] = 0.0
-                # image_syn_vis[image_syn_vis>1] = 1.0
-                # save_image(image_syn_vis, save_name, nrow=args.ipc) # Trying normalize = True/False may get better visual effects.
-
-            ''' Train synthetic data '''
-            net = get_network(args.model, channel, num_classes, im_size).to(args.device) # get a random model
-            net.train()
-            for param in list(net.parameters()):
-                param.requires_grad = False
-                    
-            loss_avg = 0
-            def error(real, syn, err_type="MSE"):
-                        
-                if(err_type == "MSE"):
-                    err = torch.sum((torch.mean(real, dim=0) - torch.mean(syn, dim=0))**2)
-                
-                elif (err_type == "MAE"):
-                    err = torch.sum(torch.abs(torch.mean(real, dim=0) - torch.mean(syn, dim=0)))
-                    
-                elif (err_type == "ANG"):
-                    rl = torch.mean(real, dim=0) 
-                    sy = torch.mean(syn, dim=0)
-                    num = torch.matmul(rl, sy)
-                    denom = (torch.sum(rl**2)**0.5) * (torch.sum(sy**2)**0.5)
-                    err = torch.acos(num/denom)
-                    
-                elif(err_type == "MSE_B"):
-                    err = torch.sum((torch.mean(real.reshape(num_classes, args.batch_real, -1), dim=1).cpu() - torch.mean(syn.cpu().reshape(num_classes, args.ipc, -1), dim=1))**2)
-                elif(err_type == "MAE_B"):
-                    err = torch.sum(torch.abs(torch.mean(real.reshape(num_classes, args.batch_real, -1), dim=1).cpu() - torch.mean(syn.reshape(num_classes, args.ipc, -1).cpu(), dim=1)))
-                elif (err_type == "ANG_B"):
-                    rl = torch.mean(real.reshape(num_classes, args.batch_real, -1), dim=1).cpu()
-                    sy = torch.mean(syn.reshape(num_classes, args.ipc, -1), dim=1)
-                    
-                    denom = (torch.sum(rl**2)**0.5).cpu() * (torch.sum(sy**2)**0.5).cpu()
-                    num = rl.cpu() * sy.cpu()
-                    err = torch.sum(torch.acos(num/denom))
-                return err
-            
-            ''' update synthetic data '''
-            loss = torch.tensor(0.0)
-            mid_loss = 0
-            out_loss = 0
-
-            images_real_all = []
-            images_syn_all = []
-            for c in range(num_classes):
-                img_real = get_images(c, args.batch_real)
-                img_syn = image_syn[c*args.ipc:(c+1)*args.ipc].reshape((args.ipc, channel, im_size[0], im_size[1]))
-
-                if args.dsa:
-                    seed = int(time.time() * 1000) % 100000
-                    img_real = DiffAugment(img_real, args.dsa_strategy, seed=seed, param=args.dsa_param)
-                    img_syn = DiffAugment(img_syn, args.dsa_strategy, seed=seed, param=args.dsa_param)
-
-                images_real_all.append(img_real)
-                images_syn_all.append(img_syn)
-
-            images_real_all = torch.cat(images_real_all, dim=0)
-            
-            images_syn_all = torch.cat(images_syn_all, dim=0)
-
-            
-            hooks = attach_hooks(net)
-            
-            output_real = net(images_real_all)[0].detach()
-            activations, original_model_set_activations = refreshActivations(activations)
-            
-            output_syn = net(images_syn_all)[0]
-            activations, syn_model_set_activations = refreshActivations(activations)
-            delete_hooks(hooks)
-            
-            length_of_network = len(original_model_set_activations)# of Feature Map Sets
-            
-            for layer in range(length_of_network-1):
-                
-                real_attention = get_attention(original_model_set_activations[layer].detach(), param=1, exp=1, norm='l2')
-                syn_attention = get_attention(syn_model_set_activations[layer], param=1, exp=1, norm='l2')
-
-                tl =  100*error(real_attention, syn_attention, err_type="MSE_B")
-                loss+=tl
-                mid_loss += tl
-
-            output_loss =  100*args.task_balance * error(output_real, output_syn, err_type="MSE_B")
-            
-            loss += output_loss
-            out_loss += output_loss
-
-            optimizer_img.zero_grad()
             loss.backward()
-            optimizer_img.step()
-            loss_avg += loss.item()
-            torch.cuda.empty_cache()
+            optimizer.step()
+            scheduler.step()
 
-            loss_avg /= (num_classes)
-            out_loss /= (num_classes)
-            mid_loss /= (num_classes)
-            if it%10 == 0:
-                print('%s iter = %05d, loss = %.4f' % (get_time(), it, loss_avg))
-    print('\n==================== Final Results ====================\n')
-    for key in model_eval_pool:
-        accs = accs_all_exps[key]
-        print('Run %d experiments, train on %s, evaluate %d random %s, mean  = %.2f%%  std = %.2f%%'%(args.num_exp, args.model, len(accs), key, np.mean(accs)*100, np.std(accs)*100))
-    
-    print('\n==================== Maximum Results ====================\n')
-    
-    best_means = []
-    best_std = []
-    for exp in total_mean.keys():
-        best_idx = np.argmax(total_mean[exp]['mean'])
-        best_means.append(total_mean[exp]['mean'][best_idx])
-        best_std.append(total_mean[exp]['std'][best_idx])
-    
-    mean = np.mean(best_means)
-    std = np.mean(best_std)
-        
-    num_eval = args.num_exp*args.num_eval
-    print('Run %d experiments, train on %s, evaluate %d random %s, mean  = %.2f%%  std = %.2f%%'%(args.num_exp, args.model,num_eval, key, mean*100, std*100))
-    
-    
-    print('\n==================== Top 5 Results ====================\n')
-    
-       
-    mean = np.mean(best_5)
-    std = np.std(best_5)
-        
-    num_eval = args.num_exp*args.num_eval
-    print('Run %d experiments, train on %s, evaluate %d random %s, mean  = %.2f%%  std = %.2f%%'%(args.num_exp, args.model,num_eval, key, mean*100, std*100))
+        loss_avg /= num_exp
+        acc_avg /= num_exp
 
+        print("  average training loss: {0:.3f}".format(loss_avg))
+        print("  accuracy: {0:.2f}".format(acc_avg))
+        # validation
+        print("")
+        print("Running testing...")
+        test_loss_avg, test_acc_avg, test_num_exp = 0, 0, 0
+
+        
+        model.eval()
+        with torch.no_grad():
+            for i_batch, datum in enumerate(test_loader):
+                img = datum[0].float().to(args.device)
+                lab = datum[1].long().to(args.device)
+                bs = lab.shape[0]
+
+                output = model(img)
+                loss = criterion(output, lab)
+                acc = np.sum(np.equal(np.argmax(output.cpu().data.numpy(), axis=-1), lab.cpu().data.numpy()))
+
+                test_loss_avg += loss.item()*bs
+                test_acc_avg += acc
+                test_num_exp += bs
+
+            test_loss_avg /= test_num_exp
+            test_acc_avg /= test_num_exp
+        print("  average testing loss: {0:.3f}".format(test_loss_avg))
+        print("  test accuracy: {0:.2f}".format(test_acc_avg))
+        wandb.log({"lr": scheduler.optimizer.param_groups[0]['lr'], "test loss": test_loss_avg, "train loss": loss_avg, "test accuracy": test_acc_avg, "train accuracy": acc_avg})
+    
 
 if __name__ == '__main__':
+    wandb.login()
+    wandb.init(project="1512")
     main()
 
