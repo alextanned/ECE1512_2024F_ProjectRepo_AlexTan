@@ -193,55 +193,56 @@ def main():
 
             ''' Evaluate synthetic data '''
             if it in eval_it_pool:
-                # for model_eval in model_eval_pool:
-                #     print('-------------------------\nEvaluation\nmodel_train = %s, model_eval = %s, iteration = %d'%(args.model, model_eval, it))
+                for model_eval in model_eval_pool:
+                    print('-------------------------\nEvaluation\nmodel_train = %s, model_eval = %s, iteration = %d'%(args.model, model_eval, it))
 
-                #     print('DSA augmentation strategy: \n', args.dsa_strategy)
-                #     print('DSA augmentation parameters: \n', args.dsa_param.__dict__)
+                    print('DSA augmentation strategy: \n', args.dsa_strategy)
+                    print('DSA augmentation parameters: \n', args.dsa_param.__dict__)
 
-                #     accs = []
-                #     Start = time.time()
-                #     for it_eval in range(args.num_eval):
-                #         net_eval = get_network(model_eval, channel, num_classes, im_size).to(args.device) # get a random model
-                #         image_syn_eval, label_syn_eval = copy.deepcopy(image_syn.detach()), copy.deepcopy(label_syn.detach()) # avoid any unaware modification
-                #         mini_net, acc_train, acc_test = evaluate_synset(it_eval, net_eval, image_syn_eval, label_syn_eval, testloader, args)
-                #         accs.append(acc_test)
-                #         if acc_test > best_5[-1]:
-                #             best_5[-1] = acc_test
+                    # accs = []
+                    # Start = time.time()
+                    # for it_eval in range(args.num_eval):
+                    #     net_eval = get_network(model_eval, channel, num_classes, im_size).to(args.device) # get a random model
+                    #     image_syn_eval, label_syn_eval = copy.deepcopy(image_syn.detach()), copy.deepcopy(label_syn.detach()) # avoid any unaware modification
+                    #     mini_net, acc_train, acc_test = evaluate_synset(it_eval, net_eval, image_syn_eval, label_syn_eval, testloader, args)
+                    #     accs.append(acc_test)
+                    #     if acc_test > best_5[-1]:
+                    #         best_5[-1] = acc_test
                     
-                #     Finish = (time.time() - Start)/10
+                    # Finish = (time.time() - Start)/10
                     
-                #     print("TOTAL TIME WAS: ", Finish)
+                    # print("TOTAL TIME WAS: ", Finish)
                             
                             
-                #     print('Evaluate %d random %s, mean = %.4f std = %.4f\n-------------------------'%(len(accs), model_eval, np.mean(accs), np.std(accs)))
-                #     if np.mean(accs) > max_mean:
-                #         data=[]
-                #         data_save.append([copy.deepcopy(image_syn.detach().cpu()), copy.deepcopy(label_syn.detach().cpu())])
-                #         torch.save({'data': data_save, 'accs_all_exps': accs_all_exps, }, os.path.join(args.save_path, 'res_%s_%s_%s_%dipc_iter%d.pt'%(args.method, args.dataset, args.model, args.ipc, it)))
-                #     # Track All of them!
-                #     total_mean[exp]['mean'].append(np.mean(accs))
-                #     total_mean[exp]['std'].append(np.std(accs))
+                    # print('Evaluate %d random %s, mean = %.4f std = %.4f\n-------------------------'%(len(accs), model_eval, np.mean(accs), np.std(accs)))
+                    # if np.mean(accs) > max_mean:
+                    #     data=[]
+                    #     data_save.append([copy.deepcopy(image_syn.detach().cpu()), copy.deepcopy(label_syn.detach().cpu())])
+                    #     torch.save({'data': data_save, 'accs_all_exps': accs_all_exps, }, os.path.join(args.save_path, 'res_%s_%s_%s_%dipc_iter%d.pt'%(args.method, args.dataset, args.model, args.ipc, it)))
+                    # # Track All of them!
+                    # total_mean[exp]['mean'].append(np.mean(accs))
+                    # total_mean[exp]['std'].append(np.std(accs))
                     
-                #     accuracy_logging["mean"].append(np.mean(accs))
-                #     accuracy_logging["std"].append(np.std(accs))
-                #     accuracy_logging["max_mean"].append(np.max(accs))
+                    # accuracy_logging["mean"].append(np.mean(accs))
+                    # accuracy_logging["std"].append(np.std(accs))
+                    # accuracy_logging["max_mean"].append(np.max(accs))
                     
                     
-                #     if it == args.Iteration: # record the final results
-                #         accs_all_exps[model_eval] += accs
+                    # if it == args.Iteration: # record the final results
+                    #     accs_all_exps[model_eval] += accs
 
                 ''' visualize and save '''
                 save_name = os.path.join(args.save_path, 'vis_%s_%s_%s_%dipc_exp%d_iter%d.png'%(args.method, args.dataset, args.model, args.ipc, exp, it))
                     
-                image_syn_vis = copy.deepcopy(image_syn.detach().cpu())
+                # image_syn_vis = copy.deepcopy(image_syn.detach().cpu())
+                image_syn_vis = torch.load("/home/tanshiq1/projects/ECE1512/Project1/ECE1512_2024F_ProjectRepo_AlexTan_ZhiyuanYaoyuan/PAD/distill/logged_files/MNIST/10/ConvNet/RANDOM/Normal/images_10.pt")
                 for ch in range(channel):
                     image_syn_vis[:, ch] = image_syn_vis[:, ch]  * std[ch] + mean[ch]
-                image_syn_vis[image_syn_vis<0] = 0.0
+                image_syn_vis[image_syn_vis<0] = 0.01
                 image_syn_vis[image_syn_vis>1] = 1.0
                 save_image(image_syn_vis, save_name, nrow=10) # Trying normalize = True/False may get better visual effects.
                 print("\n\n\nSaved synthetic image vis_%s_%s_%s_%dipc_exp%d_iter%d.png'\n\n\n"%(args.method, args.dataset, args.model, args.ipc, exp, it))
-
+                exit()
             ''' Train synthetic data '''
             net = get_network(args.model, channel, num_classes, im_size).to(args.device) # get a random model
             net.train()

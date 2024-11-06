@@ -67,15 +67,16 @@ def get_dataset(dataset, data_root, transform=None, partition='train', syn=False
     
     elif dataset == 'MNIST':
         if syn:
-            # "syn/mhist/res_DataDAM_MNIST_ConvNetD3_10ipc_iter10.pt"
-            syn_file = torch.load("syn/mhist/res_DataDAM_MNIST_ConvNetD3_10ipc_iter10.pt")
+
+            # syn_file = torch.load("syn/mhist/res_DataDAM_MNIST_ConvNetD3_10ipc_iter10.pt")
+            syn_file = torch.load('/home/tanshiq1/projects/ECE1512/Project1/DatasetCondensation/result/res_DM_MNIST_ConvNet_10ipc.pt')
             syn_images = syn_file['data'][-1][0] # [100, 1, 28, 28]
             labels = torch.tensor([i for i in range(10) for _ in range(10)])
 
             dataset = TensorDataset(syn_images, labels)
             return dataset
         elif padd_syn:
-            syn_images = torch.load("/home/tanshiq1/projects/ECE1512/Project1/PAD/distill/logged_files/MNIST/10/ConvNet/RANDOM/Normal/images_10.pt")
+            syn_images = torch.load("/home/tanshiq1/projects/ECE1512/Project1/ECE1512_2024F_ProjectRepo_AlexTan_ZhiyuanYaoyuan/PAD/distill/logged_files/MNIST/10/ConvNet/RANDOM/Normal/images_best.pt")
             labels = torch.tensor([i for i in range(10) for _ in range(10)])
             
 
