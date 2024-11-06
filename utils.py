@@ -4,12 +4,50 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import pandas as pd
 from torch.utils.data import Dataset
+from PIL import Image
 from torchvision import datasets, transforms
 from scipy.ndimage.interpolation import rotate as scipyrotate
 from networks import MLP, ConvNet, LeNet, AlexNet, AlexNetBN, VGG11, VGG11BN, ResNet18, ResNet18BN_AP, ResNet18BN
 
-def get_dataset(dataset, data_path):
+def get_attention(feature_set, param=0, exp=4, norm='l2'):
+    if param==0:
+        attention_map = torch.sum(torch.abs(feature_set), dim=1)
+    
+    elif param ==1:
+        attention_map =  torch.sum(torch.abs(feature_set)**exp, dim=1)
+    
+    elif param == 2:
+        attention_map =  torch.max(torch.abs(feature_set)**exp, dim=1)
+       
+    if norm == 'l2': 
+        # Dimension: [B x (H*W)] -- Vectorized
+        vectorized_attention_map =  attention_map.view(feature_set.size(0), -1)
+        normalized_attention_maps = F.normalize(vectorized_attention_map, p=2.0)
+    
+    elif norm == 'fro':
+        # Dimension: [B x H x W] -- Un-Vectorized
+        un_vectorized_attention_map =  attention_map
+        # Dimension: [B]
+        fro_norm = torch.sum(torch.sum(torch.abs(attention_map)**2, dim=1), dim=1)
+        # Dimension: [B x H x W] -- Un-Vectorized)
+        normalized_attention_maps = un_vectorized_attention_map / fro_norm.unsqueeze(dim=-1).unsqueeze(dim=-1)
+    elif norm == 'l1': 
+        # Dimension: [B x (H*W)] -- Vectorized
+        vectorized_attention_map =  attention_map.view(feature_set.size(0), -1)
+        normalized_attention_maps = F.normalize(vectorized_attention_map, p=1.0)
+    
+    elif norm =='none':
+        normalized_attention_maps = attention_map
+        
+    elif norm == 'none-vectorized':
+        normalized_attention_maps =  attention_map.view(feature_set.size(0), -1)
+    
+    return normalized_attention_maps
+        
+
+def get_dataset(dataset, data_path, args):
     if dataset == 'MNIST':
         channel = 1
         im_size = (28, 28)
@@ -20,6 +58,40 @@ def get_dataset(dataset, data_path):
         dst_train = datasets.MNIST(data_path, train=True, download=True, transform=transform) # no augmentation
         dst_test = datasets.MNIST(data_path, train=False, download=True, transform=transform)
         class_names = [str(c) for c in range(num_classes)]
+
+    elif dataset == 'MHIST':
+        mean = [0.73943309, 0.65267006, 0.77742641]
+        std = [0.19637706, 0.24239548, 0.16935587]
+        channel = 3
+        im_size = (224, 224)
+        num_classes = 2
+        class_names = ['HP','SSA']
+        train_images = [] 
+        test_images = []
+        train_labels = []  
+        test_labels = []
+        annotations = pd.read_csv(os.path.join(data_path, 'annotations.csv'))
+        for idx in range(len(annotations)):
+ 
+            img_name = os.path.join(data_path, 'images', annotations.iloc[idx, 0])
+            image = np.array(Image.open(img_name).convert("RGB"), dtype=float)/255.0
+            
+            label = 1 if annotations.iloc[idx, 1] == "SSA" else 0
+            image = (image - mean)/std
+            image = np.transpose(image, (2, 0, 1))
+            if annotations.iloc[idx, 3] == 'train':
+                train_images.append(image)
+                train_labels.append(label)
+            else:
+                test_images.append(image)
+                test_labels.append(label)
+        train_images = np.array(train_images)
+        train_labels = np.array(train_labels)
+        test_images = np.array(test_images)
+        test_labels = np.array(test_labels)
+
+        dst_train = TensorDataset(torch.tensor(train_images), torch.tensor(train_labels))
+        dst_test = TensorDataset(torch.tensor(test_images), torch.tensor(test_labels))
 
     elif dataset == 'FashionMNIST':
         channel = 1
@@ -96,8 +168,8 @@ def get_dataset(dataset, data_path):
     else:
         exit('unknown dataset: %s'%dataset)
 
-
-    testloader = torch.utils.data.DataLoader(dst_test, batch_size=256, shuffle=False, num_workers=0)
+    # have to reduce batch size for MHIST
+    testloader = torch.utils.data.DataLoader(dst_test, batch_size=128, shuffle=False, num_workers=0)
     return channel, im_size, num_classes, class_names, mean, std, dst_train, dst_test, testloader
 
 
@@ -357,7 +429,8 @@ def evaluate_synset(it_eval, net, images_train, labels_train, testloader, args):
             optimizer = torch.optim.SGD(net.parameters(), lr=lr, momentum=0.9, weight_decay=0.0005)
 
     time_train = time.time() - start
-    loss_test, acc_test = epoch('test', testloader, net, optimizer, criterion, args, aug = False)
+    with torch.no_grad():
+        loss_test, acc_test = epoch('test', testloader, net, optimizer, criterion, args, aug = False)
     print('%s Evaluate_%02d: epoch = %04d train time = %d s train loss = %.6f train acc = %.4f, test acc = %.4f' % (get_time(), it_eval, Epoch, int(time_train), loss_train, acc_train, acc_test))
 
     return net, acc_train, acc_test
@@ -535,7 +608,7 @@ def rand_scale(x, param):
             [0,  sy[i], 0],] for i in range(x.shape[0])]
     theta = torch.tensor(theta, dtype=torch.float)
     if param.Siamese: # Siamese augmentation:
-        theta[:] = theta[0]
+        theta[:] = theta[0].clone()
     grid = F.affine_grid(theta, x.shape).to(x.device)
     x = F.grid_sample(x, grid)
     return x
@@ -549,7 +622,7 @@ def rand_rotate(x, param): # [-180, 180], 90: anticlockwise 90 degree
         [torch.sin(theta[i]), torch.cos(theta[i]),  0],]  for i in range(x.shape[0])]
     theta = torch.tensor(theta, dtype=torch.float)
     if param.Siamese: # Siamese augmentation:
-        theta[:] = theta[0]
+        theta[:] = theta[0].clone()
     grid = F.affine_grid(theta, x.shape).to(x.device)
     x = F.grid_sample(x, grid)
     return x
@@ -560,7 +633,7 @@ def rand_flip(x, param):
     set_seed_DiffAug(param)
     randf = torch.rand(x.size(0), 1, 1, 1, device=x.device)
     if param.Siamese: # Siamese augmentation:
-        randf[:] = randf[0]
+        randf[:] = randf[0].clone()
     return torch.where(randf < prob, x.flip(3), x)
 
 
@@ -569,7 +642,7 @@ def rand_brightness(x, param):
     set_seed_DiffAug(param)
     randb = torch.rand(x.size(0), 1, 1, 1, dtype=x.dtype, device=x.device)
     if param.Siamese:  # Siamese augmentation:
-        randb[:] = randb[0]
+        randb[:] = randb[0].clone()
     x = x + (randb - 0.5)*ratio
     return x
 
@@ -580,7 +653,7 @@ def rand_saturation(x, param):
     set_seed_DiffAug(param)
     rands = torch.rand(x.size(0), 1, 1, 1, dtype=x.dtype, device=x.device)
     if param.Siamese:  # Siamese augmentation:
-        rands[:] = rands[0]
+        rands[:] = rands[0].clone()
     x = (x - x_mean) * (rands * ratio) + x_mean
     return x
 
@@ -591,7 +664,7 @@ def rand_contrast(x, param):
     set_seed_DiffAug(param)
     randc = torch.rand(x.size(0), 1, 1, 1, dtype=x.dtype, device=x.device)
     if param.Siamese:  # Siamese augmentation:
-        randc[:] = randc[0]
+        randc[:] = randc[0].clone()
     x = (x - x_mean) * (randc + ratio) + x_mean
     return x
 
@@ -605,8 +678,8 @@ def rand_crop(x, param):
     set_seed_DiffAug(param)
     translation_y = torch.randint(-shift_y, shift_y + 1, size=[x.size(0), 1, 1], device=x.device)
     if param.Siamese:  # Siamese augmentation:
-        translation_x[:] = translation_x[0]
-        translation_y[:] = translation_y[0]
+        translation_x[:] = translation_x[0].clone()
+        translation_y[:] = translation_y[0].clone()
     grid_batch, grid_x, grid_y = torch.meshgrid(
         torch.arange(x.size(0), dtype=torch.long, device=x.device),
         torch.arange(x.size(2), dtype=torch.long, device=x.device),
@@ -627,8 +700,8 @@ def rand_cutout(x, param):
     set_seed_DiffAug(param)
     offset_y = torch.randint(0, x.size(3) + (1 - cutout_size[1] % 2), size=[x.size(0), 1, 1], device=x.device)
     if param.Siamese:  # Siamese augmentation:
-        offset_x[:] = offset_x[0]
-        offset_y[:] = offset_y[0]
+        offset_x[:] = offset_x[0].clone()
+        offset_y[:] = offset_y[0].clone()
     grid_batch, grid_x, grid_y = torch.meshgrid(
         torch.arange(x.size(0), dtype=torch.long, device=x.device),
         torch.arange(cutout_size[0], dtype=torch.long, device=x.device),

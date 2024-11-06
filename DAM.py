@@ -13,6 +13,10 @@ from torch.utils.data.distributed import DistributedSampler
 import kornia as K
 import torch.distributed as dist
 import torch.cuda.comm
+from torchvision.utils import save_image
+
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning) 
 
 def main():
 
@@ -36,6 +40,11 @@ def main():
     parser.add_argument('--save_path', type=str, default='', help='path to save results')
     parser.add_argument('--task_balance', type=float, default=0.01, help='balance attention with output')
     
+    #        K,   T,  ηS,  ζS, ηθ,   ζθ, # images/class, minibatch size
+    # MNIST: 100, 10, 0.1, 1,  0.01, 50,      10,            256
+    # MHIST: 200 10 0.1 1 0.01 50 50 128
+    #  python DAM.py --save_path results --data_path ../ECE1512_2024F_ProjectA_submission_files/data --dataset MNIST --model ConvNetD3 --num_eval 100 --Iteration 10 --lr_img 0.1 --lr_net 0.01 --epoch_eval_train 50 --ipc 10 --batch_real 256 
+    #  python DAM.py --save_path results --data_path ../ECE1512_2024F_ProjectA_submission_files/submission_files/mhist_dataset --dataset MHIST --model ConvNetD3 --num_eval 200 --Iteration 10 --lr_img 0.1 --lr_net 0.01 --epoch_eval_train 50 --ipc 50 --batch_real 128 
     args = parser.parse_args()
     args.method = 'DataDAM'
     args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -48,10 +57,12 @@ def main():
     if not os.path.exists(args.save_path):
         os.mkdir(args.save_path)
 
-    eval_it_pool = np.arange(0, args.Iteration+1, 2000).tolist()[:] if args.eval_mode == 'S' or args.eval_mode == 'SS' else [args.Iteration] # The list of iterations when we evaluate models and record results.
+    # iteration numbers to evaluate network on synthetic data
+    eval_it_pool = np.arange(0, args.Iteration+1, 10).tolist()[:] if args.eval_mode == 'S' or args.eval_mode == 'SS' else [args.Iteration] # The list of iterations when we evaluate models and record results.
     print('eval_it_pool: ', eval_it_pool)
     
-    channel, im_size, num_classes, class_names, mean, std, dst_train, dst_test, testloader, zca = get_dataset(args.dataset, args.data_path, args)
+    channel, im_size, num_classes, class_names, mean, std, dst_train, dst_test, testloader = get_dataset(args.dataset, args.data_path, args)
+    zca = None
     model_eval_pool = get_eval_pool(args.eval_mode, args.model, args.model)
 
 
@@ -220,13 +231,15 @@ def main():
                         accs_all_exps[model_eval] += accs
 
                 ''' visualize and save '''
-                # save_name = os.path.join(args.save_path, 'vis_%s_%s_%s_%dipc_exp%d_iter%d.png'%(args.method, args.dataset, args.model, args.ipc, exp, it))
-                # image_syn_vis = copy.deepcopy(image_syn.detach().cpu())
-                # for ch in range(channel):
-                #     image_syn_vis[:, ch] = image_syn_vis[:, ch]  * std[ch] + mean[ch]
-                # image_syn_vis[image_syn_vis<0] = 0.0
-                # image_syn_vis[image_syn_vis>1] = 1.0
-                # save_image(image_syn_vis, save_name, nrow=args.ipc) # Trying normalize = True/False may get better visual effects.
+                save_name = os.path.join(args.save_path, 'vis_%s_%s_%s_%dipc_exp%d_iter%d.png'%(args.method, args.dataset, args.model, args.ipc, exp, it))
+                    
+                image_syn_vis = copy.deepcopy(image_syn.detach().cpu())
+                for ch in range(channel):
+                    image_syn_vis[:, ch] = image_syn_vis[:, ch]  * std[ch] + mean[ch]
+                image_syn_vis[image_syn_vis<0] = 0.0
+                image_syn_vis[image_syn_vis>1] = 1.0
+                save_image(image_syn_vis, save_name, nrow=args.ipc) # Trying normalize = True/False may get better visual effects.
+                print("\n\n\nSaved synthetic image vis_%s_%s_%s_%dipc_exp%d_iter%d.png'\n\n\n"%(args.method, args.dataset, args.model, args.ipc, exp, it))
 
             ''' Train synthetic data '''
             net = get_network(args.model, channel, num_classes, im_size).to(args.device) # get a random model
@@ -236,6 +249,7 @@ def main():
                     
             loss_avg = 0
             def error(real, syn, err_type="MSE"):
+                # print(real.shape, syn.shape, "error")
                         
                 if(err_type == "MSE"):
                     err = torch.sum((torch.mean(real, dim=0) - torch.mean(syn, dim=0))**2)
@@ -251,7 +265,10 @@ def main():
                     err = torch.acos(num/denom)
                     
                 elif(err_type == "MSE_B"):
-                    err = torch.sum((torch.mean(real.reshape(num_classes, args.batch_real, -1), dim=1).cpu() - torch.mean(syn.cpu().reshape(num_classes, args.ipc, -1), dim=1))**2)
+                    if args.dataset == 'MHIST':
+                        err = torch.sum((torch.mean(real.reshape(num_classes, args.batch_real, -1), dim=1).cpu() - torch.mean(syn.cpu().reshape(num_classes, args.ipc//2, -1), dim=1))**2)
+                    else:
+                        err = torch.sum((torch.mean(real.reshape(num_classes, args.batch_real, -1), dim=1).cpu() - torch.mean(syn.cpu().reshape(num_classes, args.ipc, -1), dim=1))**2)
                 elif(err_type == "MAE_B"):
                     err = torch.sum(torch.abs(torch.mean(real.reshape(num_classes, args.batch_real, -1), dim=1).cpu() - torch.mean(syn.reshape(num_classes, args.ipc, -1).cpu(), dim=1)))
                 elif (err_type == "ANG_B"):
@@ -263,66 +280,74 @@ def main():
                     err = torch.sum(torch.acos(num/denom))
                 return err
             
-            ''' update synthetic data '''
-            loss = torch.tensor(0.0)
-            mid_loss = 0
-            out_loss = 0
+            # added this because not enough memory for MHIST. MNIST does not need this
+            for img_group in range(2 if args.dataset=='MHIST' else 1): 
 
-            images_real_all = []
-            images_syn_all = []
-            for c in range(num_classes):
-                img_real = get_images(c, args.batch_real)
-                img_syn = image_syn[c*args.ipc:(c+1)*args.ipc].reshape((args.ipc, channel, im_size[0], im_size[1]))
+                ''' update synthetic data '''
+                loss = torch.tensor(0.0)
+                mid_loss = 0
+                out_loss = 0
 
-                if args.dsa:
-                    seed = int(time.time() * 1000) % 100000
-                    img_real = DiffAugment(img_real, args.dsa_strategy, seed=seed, param=args.dsa_param)
-                    img_syn = DiffAugment(img_syn, args.dsa_strategy, seed=seed, param=args.dsa_param)
+                images_real_all = []
+                images_syn_all = []
+                for c in range(num_classes):
+                    img_real = get_images(c, args.batch_real)
+                    if args.dataset=='MHIST':
+                        img_syn = image_syn[c*args.ipc:(c+1)*args.ipc].reshape((args.ipc, channel, im_size[0], im_size[1]))[img_group*(args.ipc//2):(img_group+1)*(args.ipc//2)]
+                    else:
+                        img_syn = image_syn[c*args.ipc:(c+1)*args.ipc].reshape((args.ipc, channel, im_size[0], im_size[1]))
 
-                images_real_all.append(img_real)
-                images_syn_all.append(img_syn)
+                    if args.dsa:
+                        seed = int(time.time() * 1000) % 100000
+                        img_real = DiffAugment(img_real, args.dsa_strategy, seed=seed, param=args.dsa_param)
+                        img_syn = DiffAugment(img_syn, args.dsa_strategy, seed=seed, param=args.dsa_param)
 
-            images_real_all = torch.cat(images_real_all, dim=0)
-            
-            images_syn_all = torch.cat(images_syn_all, dim=0)
+                    images_real_all.append(img_real)
+                    images_syn_all.append(img_syn)
 
-            
-            hooks = attach_hooks(net)
-            
-            output_real = net(images_real_all)[0].detach()
-            activations, original_model_set_activations = refreshActivations(activations)
-            
-            output_syn = net(images_syn_all)[0]
-            activations, syn_model_set_activations = refreshActivations(activations)
-            delete_hooks(hooks)
-            
-            length_of_network = len(original_model_set_activations)# of Feature Map Sets
-            
-            for layer in range(length_of_network-1):
+                images_real_all = torch.cat(images_real_all, dim=0)
                 
-                real_attention = get_attention(original_model_set_activations[layer].detach(), param=1, exp=1, norm='l2')
-                syn_attention = get_attention(syn_model_set_activations[layer], param=1, exp=1, norm='l2')
+                images_syn_all = torch.cat(images_syn_all, dim=0)
 
-                tl =  100*error(real_attention, syn_attention, err_type="MSE_B")
-                loss+=tl
-                mid_loss += tl
+                
+                hooks = attach_hooks(net)
+                
+                output_real = net(images_real_all).detach()
+                # print(net(images_real_all).shape)
+                activations, original_model_set_activations = refreshActivations(activations)
+                
+                output_syn = net(images_syn_all)
+                activations, syn_model_set_activations = refreshActivations(activations)
+                delete_hooks(hooks)
+                
+                length_of_network = len(original_model_set_activations)# of Feature Map Sets
+                
+                for layer in range(length_of_network-1):
+                    
+                    real_attention = get_attention(original_model_set_activations[layer].detach(), param=1, exp=1, norm='l2')
+                    syn_attention = get_attention(syn_model_set_activations[layer], param=1, exp=1, norm='l2')
+                    
 
-            output_loss =  100*args.task_balance * error(output_real, output_syn, err_type="MSE_B")
-            
-            loss += output_loss
-            out_loss += output_loss
+                    tl =  100*error(real_attention, syn_attention, err_type="MSE_B")
+                    loss+=tl
+                    mid_loss += tl
+                # print(output_real.shape, output_syn.shape)
+                output_loss =  100*args.task_balance * error(output_real, output_syn, err_type="MSE_B")
+                
+                loss += output_loss
+                out_loss += output_loss
 
-            optimizer_img.zero_grad()
-            loss.backward()
-            optimizer_img.step()
-            loss_avg += loss.item()
-            torch.cuda.empty_cache()
+                optimizer_img.zero_grad()
+                loss.backward()
+                optimizer_img.step()
+                loss_avg += loss.item()
+                torch.cuda.empty_cache()
 
-            loss_avg /= (num_classes)
-            out_loss /= (num_classes)
-            mid_loss /= (num_classes)
-            if it%10 == 0:
+                loss_avg /= (num_classes)
+                out_loss /= (num_classes)
+                mid_loss /= (num_classes)
                 print('%s iter = %05d, loss = %.4f' % (get_time(), it, loss_avg))
+            
     print('\n==================== Final Results ====================\n')
     for key in model_eval_pool:
         accs = accs_all_exps[key]
@@ -355,5 +380,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    a = main()
 
