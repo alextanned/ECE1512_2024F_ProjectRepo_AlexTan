@@ -1,0 +1,17 @@
+{"time":"2024-11-06T08:02:38.801858943-05:00","level":"INFO","msg":"using version","core version":"0.18.5"}
+{"time":"2024-11-06T08:02:38.801873868-05:00","level":"INFO","msg":"created symlink","path":"/home/tanshiq1/projects/ECE1512/Project1/PAD/distill/wandb/run-20241106_080238-nlxijxqa/logs/debug-core.log"}
+{"time":"2024-11-06T08:02:38.904480471-05:00","level":"INFO","msg":"created new stream","id":"nlxijxqa"}
+{"time":"2024-11-06T08:02:38.904503577-05:00","level":"INFO","msg":"stream: started","id":"nlxijxqa"}
+{"time":"2024-11-06T08:02:38.9045426-05:00","level":"INFO","msg":"writer: Do: started","stream_id":{"value":"nlxijxqa"}}
+{"time":"2024-11-06T08:02:38.90461581-05:00","level":"INFO","msg":"handler: started","stream_id":{"value":"nlxijxqa"}}
+{"time":"2024-11-06T08:02:38.904678837-05:00","level":"INFO","msg":"sender: started","stream_id":"nlxijxqa"}
+{"time":"2024-11-06T08:02:39.104453919-05:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2024-11-06T08:02:58.834549803-05:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2024-11-06T08:02:58.834905661-05:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2024-11-06T08:02:59.835376357-05:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"saving job artifact","runtime_seconds":0.9450879}],"total_operations":1}}
+{"time":"2024-11-06T08:03:00.011089363-05:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2024-11-06T08:03:01.31252823-05:00","level":"INFO","msg":"stream: closing","id":"nlxijxqa"}
+{"time":"2024-11-06T08:03:01.31254029-05:00","level":"INFO","msg":"handler: closed","stream_id":{"value":"nlxijxqa"}}
+{"time":"2024-11-06T08:03:01.312552887-05:00","level":"INFO","msg":"writer: Close: closed","stream_id":{"value":"nlxijxqa"}}
+{"time":"2024-11-06T08:03:01.312598052-05:00","level":"INFO","msg":"sender: closed","stream_id":"nlxijxqa"}
+{"time":"2024-11-06T08:03:01.312629931-05:00","level":"INFO","msg":"stream: closed","id":"nlxijxqa"}

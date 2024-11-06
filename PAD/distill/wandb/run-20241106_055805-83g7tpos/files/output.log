@@ -1,0 +1,31 @@
+Distributed training:  False
+Hyper-parameters:
+ {'cfg': '../configs/CIFAR-10/ConvIN/IPC10.yaml', 'dataset': 'CIFAR10', 'subset': 'imagenette', 'model': 'ConvNet', 'ipc': 10, 'eval_mode': 'S', 'num_eval': 1, 'eval_it': 500, 'epoch_eval_train': 1000, 'Iteration': 10000, 'lr_img': 100, 'lr_teacher': 0.01, 'lr_init': 0.01, 'batch_real': 256, 'batch_syn': 500, 'batch_train': 128, 'pix_init': 'samples_predicted_correctly', 'dsa': True, 'dsa_strategy': 'color_crop_cutout_flip_scale_rotate', 'data_path': '../dataset', 'buffer_path': '../buffer_storage/', 'expert_epochs': 2, 'syn_steps': 80, 'max_start_epoch': 20, 'min_start_epoch': 0, 'zca': True, 'load_all': False, 'no_aug': False, 'texture': False, 'canvas_size': 2, 'canvas_samples': 1, 'max_files': None, 'max_experts': None, 'force_save': False, 'ema_decay': 0.9995, 'lr_y': 2.0, 'Momentum_y': 0.9, 'project': 'CIFAR10_ipc10', 'name': 'RANDOM', 'threshold': 1.0, 'loss_ratio': 0.5, 'depth_ratio': 0.5, 'record_loss': False, 'Sequential_Generation': True, 'expansion_end_epoch': 1000, 'current_max_start_epoch': 10, 'init_frozen': 'start', 'skip_first_eva': True, 'parall_eva': False, 'lr_lr': 1e-05, 'res': 32, 'device': 'cpu', 'Initialize_Label_With_Another_Model': False, 'Initialize_Label_Model': '', 'Initialize_Label_Model_Dir': '', 'Label_Model_Timestamp': -1, 'zca_trans': ZCAWhitening(), 'im_size': [32, 32], 'dc_aug_param': None, 'dsa_param': <utils.utils_baseline.ParamDiffAug object at 0x7dede26e2ec0>, '_wandb': {}, 'distributed': False}
+Evaluation model pool:  ['ConvNet']
+BUILDING DATASET
+  0%|                                                                                              | 0/50000 [00:00<?, ?it/s]/home/tanshiq1/projects/ECE1512/Project1/PAD/distill/PAD_loss.py:115: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than torch.tensor(sourceTensor).
+  labels_all.append(class_map[torch.tensor(sample[1]).item()])
+100%|███████████████████████████████████████████████████████████████████████████████| 50000/50000 [00:00<00:00, 50680.43it/s]
+50000it [00:00, 797826.96it/s]
+class c = 0: 5000 real images
+class c = 1: 5000 real images
+class c = 2: 5000 real images
+class c = 3: 5000 real images
+class c = 4: 5000 real images
+class c = 5: 5000 real images
+class c = 6: 5000 real images
+class c = 7: 5000 real images
+class c = 8: 5000 real images
+class c = 9: 5000 real images
+real images channel 0, mean = -0.0000, std = 0.2683
+real images channel 1, mean = -0.0000, std = 0.2534
+real images channel 2, mean = -0.0000, std = 0.2619
+/home/tanshiq1/projects/ECE1512/Project1/PAD/distill/PAD_loss.py:137: UserWarning: Creating a tensor from a list of numpy.ndarrays is extremely slow. Please consider converting the list to a single numpy.ndarray with numpy.array() before converting to a tensor. (Triggered internally at ../torch/csrc/utils/tensor_new.cpp:278.)
+  label_syn = torch.tensor([np.ones(args.ipc) * i for i in range(num_classes)], dtype=torch.long, requires_grad=False,
+Expert Dir: ../buffer_storage/CIFAR10/ConvNet
+Traceback (most recent call last):
+  File "/home/tanshiq1/projects/ECE1512/Project1/PAD/distill/PAD_loss.py", line 617, in <module>
+    main(args)
+  File "/home/tanshiq1/projects/ECE1512/Project1/PAD/distill/PAD_loss.py", line 166, in main
+    raise AssertionError("No buffers detected at {}".format(expert_dir))
+AssertionError: No buffers detected at ../buffer_storage/CIFAR10/ConvNet

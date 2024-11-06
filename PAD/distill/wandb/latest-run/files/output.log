@@ -1,0 +1,61 @@
+Distributed training:  False
+Hyper-parameters:
+ {'cfg': '../configs/MNIST/IPC10.yaml', 'dataset': 'MNIST', 'subset': 'imagenette', 'model': 'ConvNet', 'ipc': 10, 'eval_mode': 'S', 'num_eval': 1, 'eval_it': 10, 'epoch_eval_train': 1000, 'Iteration': 10, 'lr_img': 1, 'lr_teacher': 0.01, 'lr_init': 0.01, 'batch_real': 256, 'batch_syn': 100, 'batch_train': 128, 'pix_init': 'samples_predicted_correctly', 'dsa': True, 'dsa_strategy': 'color_crop_cutout_flip_scale_rotate', 'data_path': '../dataset', 'buffer_path': '../buffer_storage/', 'expert_epochs': 2, 'syn_steps': 80, 'max_start_epoch': 2, 'min_start_epoch': 0, 'zca': True, 'load_all': False, 'no_aug': False, 'texture': False, 'canvas_size': 2, 'canvas_samples': 1, 'max_files': None, 'max_experts': None, 'force_save': False, 'ema_decay': 0.9995, 'lr_y': 1.0, 'Momentum_y': 0.9, 'project': 'MNIST_ipc10', 'name': 'RANDOM', 'threshold': 1.0, 'loss_ratio': 0.5, 'depth_ratio': 0.5, 'record_loss': False, 'Sequential_Generation': True, 'expansion_end_epoch': 3000, 'current_max_start_epoch': 1, 'init_frozen': 'start', 'skip_first_eva': True, 'parall_eva': False, 'lr_lr': 1e-05, 'res': 32, 'device': 'cuda', 'Initialize_Label_With_Another_Model': False, 'Initialize_Label_Model': '', 'Initialize_Label_Model_Dir': '', 'Label_Model_Timestamp': -1, 'zca_trans': ZCAWhitening(), 'im_size': [28, 28], 'dc_aug_param': None, 'dsa_param': <utils.utils_baseline.ParamDiffAug object at 0x77b3005e2cb0>, '_wandb': {}, 'distributed': False}
+Evaluation model pool:  ['ConvNet']
+BUILDING DATASET
+  0%|                                                                                              | 0/60000 [00:00<?, ?it/s]/home/tanshiq1/projects/ECE1512/Project1/PAD/distill/PAD_loss.py:115: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than torch.tensor(sourceTensor).
+  labels_all.append(class_map[torch.tensor(sample[1]).item()])
+100%|███████████████████████████████████████████████████████████████████████████████| 60000/60000 [00:01<00:00, 51024.69it/s]
+60000it [00:00, 778334.88it/s]
+class c = 0: 5923 real images
+class c = 1: 6742 real images
+class c = 2: 5958 real images
+class c = 3: 6131 real images
+class c = 4: 5842 real images
+class c = 5: 5421 real images
+class c = 6: 5918 real images
+class c = 7: 6265 real images
+class c = 8: 5851 real images
+class c = 9: 5949 real images
+real images channel 0, mean = 0.0000, std = 0.3602
+/home/tanshiq1/projects/ECE1512/Project1/PAD/distill/PAD_loss.py:137: UserWarning: Creating a tensor from a list of numpy.ndarrays is extremely slow. Please consider converting the list to a single numpy.ndarray with numpy.array() before converting to a tensor. (Triggered internally at ../torch/csrc/utils/tensor_new.cpp:278.)
+  label_syn = torch.tensor([np.ones(args.ipc) * i for i in range(num_classes)], dtype=torch.long, requires_grad=False,
+Expert Dir: ../buffer_storage/MNIST/ConvNet
+loading file ../buffer_storage/MNIST/ConvNet/replay_buffer_7.pt
+/home/tanshiq1/projects/ECE1512/Project1/PAD/distill/PAD_loss.py:177: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  buffer = torch.load(expert_files[expert_id[file_idx]])
+/home/tanshiq1/projects/ECE1512/Project1/PAD/distill/PAD_loss.py:207: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  temp_params = torch.load(label_expert_files[0])[0][args.Label_Model_Timestamp]
+0.0.0
+1.0.0
+2.0.0
+3.0.0
+4.0.0
+5.0.0
+6.0.0
+7.0.0
+8.0.0
+9.0.0
+[2024-11-06 08:02:41] training begins
+/home/tanshiq1/projects/ECE1512/Project1/PAD/distill/PAD_loss.py:291: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  Temp_Buffer = torch.load(label_expert_files[i])
+InitialAcc:1.0
+/home/tanshiq1/miniconda3/envs/det/lib/python3.10/site-packages/torch/functional.py:513: UserWarning: torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3609.)
+  return _VF.meshgrid(tensors, **kwargs)  # type: ignore[attr-defined]
+[2024-11-06 08:02:43] iter = 0000, loss = 0.4823
+loading file ../buffer_storage/MNIST/ConvNet/replay_buffer_3.pt
+/home/tanshiq1/projects/ECE1512/Project1/PAD/distill/PAD_loss.py:501: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  buffer = torch.load(expert_files[expert_id[file_idx]])
+-------------------------
+Evaluation
+model_train = ConvNet, model_eval = ConvNet, iteration = 10
+DSA augmentation strategy:
+ color_crop_cutout_flip_scale_rotate
+DSA augmentation parameters:
+ {'aug_mode': 'S', 'prob_flip': 0.5, 'ratio_scale': 1.2, 'ratio_rotate': 15.0, 'ratio_crop_pad': 0.125, 'ratio_cutout': 0.5, 'ratio_noise': 0.05, 'brightness': 1.0, 'saturation': 2.0, 'contrast': 0.5, 'batchmode': False, 'latestseed': -1}
+100%|███████████████████████████████████████████████████████████████████████████████████| 1001/1001 [00:03<00:00, 315.75it/s]
+[2024-11-06 08:02:57] Evaluate_00: epoch = 1000 train time = 3 s train loss = 0.417751 train acc = 0.0100, test acc = 0.9247
+Evaluate 1 random ConvNet, mean = 0.9247 std = 0.0000
+-------------------------
+Device: cuda
+[2024-11-06 08:02:58] iter = 0010, loss = 0.4237

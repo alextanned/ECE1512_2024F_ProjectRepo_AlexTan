@@ -1,0 +1,47 @@
+{
+  "os":  "Linux-6.8.0-40-generic-x86_64-with-glibc2.35",
+  "python":  "3.10.15",
+  "startedAt":  "2024-11-06T13:02:38.800764Z",
+  "args":  [
+    "--cfg",
+    "../configs/MNIST/IPC10.yaml"
+  ],
+  "program":  "/home/tanshiq1/projects/ECE1512/Project1/PAD/distill/PAD_loss.py",
+  "codePath":  "distill/PAD_loss.py",
+  "git":  {
+    "remote":  "https://github.com/NUS-HPC-AI-Lab/PAD.git",
+    "commit":  "c7d36c7736dd58a9ae4b1634ad5fcb3ad4cd061b"
+  },
+  "email":  "lzknus@gmail.com",
+  "root":  "/home/tanshiq1/projects/ECE1512/Project1/PAD/distill",
+  "host":  "tisl-ws23-2",
+  "username":  "tanshiq1",
+  "executable":  "/home/tanshiq1/miniconda3/envs/det/bin/python",
+  "codePathLocal":  "PAD_loss.py",
+  "cpu_count":  24,
+  "cpu_count_logical":  32,
+  "gpu":  "NVIDIA GeForce RTX 4090",
+  "gpu_count":  1,
+  "disk":  {
+    "/":  {
+      "total":  "4029795581952",
+      "used":  "822571794432"
+    }
+  },
+  "memory":  {
+    "total":  "67163709440"
+  },
+  "cpu":  {
+    "count":  24,
+    "countLogical":  32
+  },
+  "gpu_nvidia":  [
+    {
+      "name":  "NVIDIA GeForce RTX 4090",
+      "memoryTotal":  "25757220864",
+      "cudaCores":  16384,
+      "architecture":  "Ada"
+    }
+  ],
+  "cudaVersion":  "12.2"
+}
