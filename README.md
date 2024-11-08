@@ -9,7 +9,7 @@ This repository hosts the code file for our ECE1512 24Fall Project A, an impleme
 
 ## Motivation
 
-Deep learning advancements have led to remarkable performance across various domains but often at the expense of high computational and memory demands. Dataset distillation is a promising solution to this challenge. It condenses large datasets into smaller, highly informative subsets that retain essential features of the original data. Our approach, DataDAM, aims to significantly reduce resource requirements, making it suitable for applications in resource-constrained environments, such as edge devices and real-time systems.
+Deep learning advancements have led to remarkable performance across various domains but often at the expense of high computational and memory demands. Dataset distillation is a promising solution to this challenge. It condenses large datasets into smaller, highly informative subsets that retain essential features of the original data. In our project, DataDAM, aims to significantly reduce resource requirements, making it suitable for applications in resource-constrained environments, such as edge devices and real-time systems.
 
 ## Key Features
 
