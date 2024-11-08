@@ -83,9 +83,6 @@ The DataDAM framework has demonstrated substantial computational savings and mai
 These results highlight DataDAM’s potential to make deep learning more accessible in resource-constrained environments by reducing the computational and memory footprint without overly compromising model accuracy. 
 
 
-## License
-
-This project is licensed under the MIT License. For more details, please refer to the `LICENSE` file.
 
 ## References
 
