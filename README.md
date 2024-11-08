@@ -59,13 +59,6 @@ Replace `DataDAM` with `PAD` or `DM` in the `--method` argument to run alternati
 
 ## Results
 
-DataDAM has demonstrated high efficiency and accuracy across benchmark datasets, offering substantial memory and time savings:
-Based on the table you provided, here is an updated analysis for the `README.md` file section under **Results**:
-
----
-
-## Results
-
 The DataDAM framework has demonstrated substantial computational savings and maintained high accuracy levels across benchmark datasets when compared to training on full datasets. Here is a summary of the results:
 
 | Dataset          | Test Accuracy | Train Accuracy | GPU Memory Usage | Training Time |
