@@ -2,13 +2,10 @@
 
 ### Authors: Shiqi Tan, Zhiyuan Yaoyuan
 
-Here’s an improved version of your `README.md` file with a more formal and structured style:
-
-# Dataset Distillation with Attention Matching for Computational Efficiency in Deep Learning
 
 ## Overview
 
-This repository hosts the implementation of **DataDAM (Dataset Distillation with Attention Matching)**, a framework designed to enhance computational efficiency in deep learning by creating compact synthetic datasets. By employing Spatial Attention Matching (SAM) and Maximum Mean Discrepancy (MMD) regularization, DataDAM enables efficient model training on minimized datasets without significant accuracy loss. 
+This repository hosts the code file for our ECE1512 24Fall Project A, an implementation of **DataDAM (Dataset Distillation with Attention Matching)**, a framework designed to enhance computational efficiency in deep learning by creating compact synthetic datasets. By employing Spatial Attention Matching (SAM) and Maximum Mean Discrepancy (MMD) regularization, DataDAM enables efficient model training on minimized datasets without significant accuracy loss. 
 
 ## Motivation
 
@@ -59,23 +56,41 @@ python DAM.py --dataset MNIST --method DataDAM
 
 Replace `DataDAM` with `PAD` or `DM` in the `--method` argument to run alternative methods.
 
-### Visualizing Results
-
-Use the following command to visualize synthetic images and performance metrics:
-
-```bash
-python visualize.py --dataset MNIST
-```
 
 ## Results
 
 DataDAM has demonstrated high efficiency and accuracy across benchmark datasets, offering substantial memory and time savings:
-- **MNIST**: Achieved 90.1% test accuracy using a distilled dataset with a reduced memory footprint of 0.98 GB.
-- **MHIST**: Delivered significant reductions in GPU memory usage and training time, with competitive accuracy to models trained on full datasets.
+Based on the table you provided, here is an updated analysis for the `README.md` file section under **Results**:
 
-## Contribution Guidelines
+---
 
-We welcome contributions to this project. To contribute, please fork the repository, create a feature branch, and submit a pull request for review.
+## Results
+
+The DataDAM framework has demonstrated substantial computational savings and maintained high accuracy levels across benchmark datasets when compared to training on full datasets. Here is a summary of the results:
+
+| Dataset          | Test Accuracy | Train Accuracy | GPU Memory Usage | Training Time |
+|------------------|---------------|----------------|-------------------|---------------|
+| MNIST (Full)     | 99.1%         | 97.3%         | 4.67 GB          | 190.5 s       |
+| MNIST (Cond.)    | 90.1%         | 89.0%         | 0.98 GB          | 30.2 s        |
+| MHIST (Full)     | 81.2%         | 91.2%         | 24.0 GB          | 80.3 s        |
+| MHIST (Cond.)    | 62.0%         | 100.0%        | 2.90 GB          | 10.5 s        |
+
+
+1. **Memory and Computational Efficiency**:
+   - The condensed MNIST dataset requires only **0.98 GB** of GPU memory and completes training in **30.2 seconds**, compared to **4.67 GB** and **190.5 seconds** for the full dataset. This translates to significant savings in both memory and training time.
+   - For the MHIST dataset, the condensed version also shows substantial reductions, needing only **2.90 GB** of memory and **10.5 seconds** for training, compared to **24.0 GB** and **80.3 seconds** for the full dataset.
+
+2. **Performance Trade-offs**:
+   - The accuracy of models trained on the condensed MNIST dataset (90.1% test accuracy) is slightly lower than those trained on the full dataset (99.1%), but the reduced memory and time requirements make it an effective option for resource-constrained environments.
+   - The MHIST dataset, being more complex, shows a more significant drop in test accuracy when condensed (62.0% vs. 81.2% with the full dataset). However, it still achieves notable accuracy while significantly reducing the resource demands, making it useful for applications where speed and memory efficiency are prioritized over the highest accuracy.
+
+3. **Generalization Ability**:
+   - While condensed datasets show a drop in test accuracy, they retain the core features necessary for classification tasks, as indicated by relatively high train accuracies. In particular, the condensed MNIST dataset shows strong generalization, as the reduction in test accuracy remains within an acceptable range given the savings.
+
+These results highlight DataDAM’s potential to make deep learning more accessible in resource-constrained environments by reducing the computational and memory footprint without overly compromising model accuracy. 
+
+---
+
 
 ## License
 
