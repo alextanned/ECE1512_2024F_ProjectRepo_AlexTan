@@ -89,7 +89,37 @@ This project is licensed under the MIT License. For more details, please refer t
 
 ## References
 
-- Sajedi et al., "DataDAM: Efficient Dataset Distillation with Attention Matching," *Proc. IEEE/CVF International Conference on Computer Vision, 2023*.
-- Wang et al., "Dataset Distillation," *arXiv preprint arXiv:1811.10959, 2018*.
+1. T. Wang, "Dataset Distillation: A Data-Efficient Learning Framework," *Proc. IEEE Conf. on Computer Vision and Pattern Recognition*, 2022.
 
+2. T. Wang, J.-Y. Zhu, A. Torralba, and A. A. Efros, "Dataset Distillation," *arXiv preprint arXiv:1811.10959*, 2018.
+
+3. G. Hinton, O. Vinyals, and J. Dean, "Distilling the Knowledge in a Neural Network," *Proc. NIPS*, 2015.
+
+4. A. Sajedi, S. Khaki, E. Amjadian, L. Z. Liu, Y. A. Lawryshyn, and K. N. Plataniotis, "DataDAM: Efficient Dataset Distillation with Attention Matching," *Proc. IEEE/CVF International Conference on Computer Vision*, pp. 17097–17107, 2023.
+
+5. Z. Li, Z. Guo, W. Zhao, T. Zhang, Z.-Q. Cheng, S. Khaki, K. Zhang, A. Sajedi, K. N. Plataniotis, and Y. You, "Prioritize Alignment in Dataset Distillation," *arXiv preprint arXiv:2408.03360*, 2024.
+
+6. T. Dong, B. Zhao, and L. Lyu, "Privacy for Free: How Does Dataset Condensation Help Privacy?," *arXiv preprint arXiv:2206.00240*, 2022.
+
+7. J. Cui, R. Wang, S. Si, and C.-J. Hsieh, "DC-Bench: Dataset Condensation Benchmark," *arXiv preprint arXiv:2207.09639*, 2022.
+
+8. K. Wang, B. Zhao, X. Peng, et al., "CAFE: Learning to Condense Dataset by Aligning Features," *Proc. IEEE/CVF Conf. on Computer Vision and Pattern Recognition*, pp. 12196–12205, 2022.
+
+9. A. Krizhevsky, and G. Hinton, "Learning Multiple Layers of Features from Tiny Images," 2009.
+
+10. J. Deng, W. Dong, R. Socher, L.-J. Li, K. Li, and L. Fei-Fei, "ImageNet: A Large-Scale Hierarchical Image Database," *Proc. IEEE Conf. on Computer Vision and Pattern Recognition*, pp. 248–255, 2009.
+
+11. B. Zhao and H. Bilen, "Dataset Condensation with Differentiable Siamese Augmentation," *ICML*, 2021.
+
+12. B. Zhao and H. Bilen, "Dataset Condensation with Distribution Matching," *arXiv preprint arXiv:2110.04181*, 2021.
+
+13. J. P. Lorraine, P. Vicol, and D. Duvenaud, "Optimizing Millions of Hyperparameters by Implicit Differentiation," *AISTATS*, 2020.
+
+14. J.-H. Kim, J. Kim, S. J. Oh, S. Yun, et al., "Dataset Condensation via Efficient Synthetic-Data Parameterization," *arXiv preprint arXiv:2205.14959*, 2022.
+
+15. Y. LeCun, L. Bottou, Y. Bengio, and P. Haffner, "Gradient-Based Learning Applied to Document Recognition," *Proc. IEEE*, 1998.
+
+16. S. Mahapatra, et al., "MHIST: Minimalist Histopathology Image Analysis," *arXiv preprint arXiv:2101.12355*, 2021.
+
+## Inquiries
 For any questions or further information, please contact the authors at `{alexshiqi.tan, zhiyuan.yaoyuan}@mail.utoronto.ca`.
