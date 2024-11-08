@@ -121,11 +121,11 @@ This project is licensed under the MIT License. For more details, please refer t
 
 16. S. Mahapatra, et al., "MHIST: Minimalist Histopathology Image Analysis," *arXiv preprint arXiv:2101.12355*, 2021.
 
-17. Code for DataDAM taken from: [https://github.com/DataDistillation/DataDAM](https://github.com/DataDistillation/DataDAM).
+17. DataDistillation, "DataDAM: Efficient Dataset Distillation with Attention Matching," GitHub repository. Available: https://github.com/DataDistillation/DataDAM
 
-18. Code for PAD taken from: [https://github.com/NUS-HPC-AI-Lab/PAD](https://github.com/NUS-HPC-AI-Lab/PAD).
+18. NUS-HPC-AI-Lab, "PAD: Prioritize Alignment in Dataset Distillation," GitHub repository. Available: https://github.com/NUS-HPC-AI-Lab/PAD
 
-19. Code for Dataset Condensation with Distribution Matching taken from: [https://github.com/VICO-UoE/DatasetCondensation](https://github.com/VICO-UoE/DatasetCondensation).
+19. VICO-UoE, "Dataset Condensation with Distribution Matching," GitHub repository. Available: https://github.com/VICO-UoE/DatasetCondensation
 
 ## Inquiries
 For any questions or further information, please contact the authors at `{alexshiqi.tan, zhiyuan.yaoyuan}@mail.utoronto.ca`.
